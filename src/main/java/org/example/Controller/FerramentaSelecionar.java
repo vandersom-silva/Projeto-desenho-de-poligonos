@@ -1,8 +1,12 @@
-package org.example.Controller;
+ package org.example.Controller;
 
 import javafx.scene.input.MouseEvent;
+
 import org.example.Models.FormaGeometrica;
 import org.example.Models.Ponto;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class FerramentaSelecionar implements Ferramenta {
 
@@ -10,7 +14,7 @@ public class FerramentaSelecionar implements Ferramenta {
     private double ultimoX;
     private double ultimoY;
 
-    // Dados da caixa de seleção
+    // Controle da caixa de seleção
     private boolean arrastandoCaixa;
     private double selecaoStartX;
     private double selecaoStartY;
@@ -23,45 +27,45 @@ public class FerramentaSelecionar implements Ferramenta {
         double x = evento.getX();
         double y = evento.getY();
 
-        // Procura a forma que foi clicada
+        // Procura a forma clicada usando as coordenadas
+        // reais do mouse para não prejudicar a seleção.
         FormaGeometrica formaClicada =
                 encontrarForma(x, y, contexto);
 
         if (formaClicada != null) {
 
-            /*
-             * Se clicou em uma forma que já está selecionada,
-             * mantemos todas as formas selecionadas.
-             *
-             * Isso permite mover várias formas juntas.
-             */
+            // Seleciona a forma ou seu grupo, caso
+            // ainda não esteja selecionada.
             if (!contexto.estaSelecionada(formaClicada)) {
 
-                // Clicou em uma forma não selecionada:
-                // limpa a seleção anterior e seleciona somente ela.
-                contexto.limparSelecao();
+                contexto.selecionarFormaOuGrupo(
+                        formaClicada
+                );
 
-                contexto.adicionarSelecionado(
+            } else {
+
+                // Registra qual forma foi clicada por último.
+                contexto.setFormaPrincipalSelecionada(
                         formaClicada
                 );
             }
 
-            // Guarda a posição inicial do mouse
-            ultimoX = x;
-            ultimoY = y;
+            /*
+             * Guarda a posição inicial do mouse.
+             * Se o Snap estiver ligado, utiliza a
+             * posição ajustada à grade.
+             */
+            ultimoX = contexto.aplicarSnap(x);
+            ultimoY = contexto.aplicarSnap(y);
 
-            // Não é uma caixa de seleção
             arrastandoCaixa = false;
 
         } else {
 
-            /*
-             * Clicou em uma área vazia.
-             * Remove a seleção atual e começa
-             * uma possível caixa de seleção.
-             */
+            // Clique fora das formas: desmarca todas.
             contexto.limparSelecao();
 
+            // Inicia uma possível caixa de seleção.
             arrastandoCaixa = true;
 
             selecaoStartX = x;
@@ -80,39 +84,40 @@ public class FerramentaSelecionar implements Ferramenta {
         double x = evento.getX();
         double y = evento.getY();
 
-        /*
-         * Se existe uma ou mais formas selecionadas,
-         * todas são movimentadas juntas.
-         */
         if (!arrastandoCaixa
                 && !contexto.getSelecionados().isEmpty()) {
 
-            // Calcula o deslocamento do mouse
-            double dx = x - ultimoX;
-            double dy = y - ultimoY;
+            /*
+             * Converte a posição atual para a grade
+             * quando o Snap estiver ativado.
+             */
+            double posicaoX =
+                    contexto.aplicarSnap(x);
+
+            double posicaoY =
+                    contexto.aplicarSnap(y);
+
+            // Calcula o deslocamento.
+            double dx = posicaoX - ultimoX;
+            double dy = posicaoY - ultimoY;
 
             /*
-             * Aplica exatamente o mesmo deslocamento
-             * a todas as formas selecionadas.
+             * Move todas as formas selecionadas,
+             * incluindo os membros dos grupos.
+             * Todas recebem exatamente o mesmo deslocamento.
              */
-            for (FormaGeometrica forma :
-                    contexto.getSelecionados()) {
+            if (dx != 0 || dy != 0) {
 
-                forma.transladar(dx, dy);
+                for (FormaGeometrica forma :
+                        contexto.getFormasAfetadasPorSelecao()) {
+
+                    forma.transladar(dx, dy);
+                }
             }
 
-            // Atualiza a posição anterior do mouse
-            ultimoX = x;
-            ultimoY = y;
-        }
-
-        /*
-         * Se estiver criando uma caixa de seleção,
-         * não move as formas.
-         */
-        else if (arrastandoCaixa) {
-
-            // A caixa será desenhada pelo ContainerApp.
+            // Atualiza a última posição já ajustada à grade.
+            ultimoX = posicaoX;
+            ultimoY = posicaoY;
         }
 
         contexto.requestRedraw();
@@ -127,33 +132,17 @@ public class FerramentaSelecionar implements Ferramenta {
         double x = evento.getX();
         double y = evento.getY();
 
-        // Finaliza a caixa de seleção
         if (arrastandoCaixa) {
 
-            double minX = Math.min(
-                    selecaoStartX,
-                    x
-            );
+            double minX = Math.min(selecaoStartX, x);
+            double maxX = Math.max(selecaoStartX, x);
 
-            double maxX = Math.max(
-                    selecaoStartX,
-                    x
-            );
+            double minY = Math.min(selecaoStartY, y);
+            double maxY = Math.max(selecaoStartY, y);
 
-            double minY = Math.min(
-                    selecaoStartY,
-                    y
-            );
+            Set<String> idsDosGrupos = new HashSet<>();
 
-            double maxY = Math.max(
-                    selecaoStartY,
-                    y
-            );
-
-            /*
-             * Seleciona todas as formas que estiverem
-             * completamente dentro da caixa.
-             */
+            // Seleciona formas totalmente dentro da caixa.
             for (FormaGeometrica forma :
                     contexto.getFormas()) {
 
@@ -164,9 +153,26 @@ public class FerramentaSelecionar implements Ferramenta {
                         maxX,
                         maxY)) {
 
-                    contexto.adicionarSelecionado(
-                            forma
-                    );
+                    contexto.adicionarSelecionado(forma);
+
+                    String groupId = forma.getGroupId();
+
+                    if (groupId != null && !groupId.isBlank()) {
+                        idsDosGrupos.add(groupId);
+                    }
+                }
+            }
+
+            // Inclui os demais membros dos grupos encontrados.
+            for (FormaGeometrica forma :
+                    contexto.getFormas()) {
+
+                String groupId = forma.getGroupId();
+
+                if (groupId != null
+                        && idsDosGrupos.contains(groupId)) {
+
+                    contexto.adicionarSelecionado(forma);
                 }
             }
         }
@@ -182,10 +188,7 @@ public class FerramentaSelecionar implements Ferramenta {
             MouseEvent evento,
             EditorContext contexto) {
 
-        /*
-         * A seleção é feita no pressionamento
-         * do botão do mouse.
-         */
+        // A seleção é tratada no pressionamento do mouse.
     }
 
     private FormaGeometrica encontrarForma(
@@ -193,12 +196,8 @@ public class FerramentaSelecionar implements Ferramenta {
             double y,
             EditorContext contexto) {
 
-        /*
-         * Percorre de trás para frente para encontrar
-         * primeiro a forma que estiver por cima.
-         */
-        for (int i =
-             contexto.getFormas().size() - 1;
+        // Prioriza a forma desenhada por cima.
+        for (int i = contexto.getFormas().size() - 1;
              i >= 0;
              i--) {
 
@@ -206,7 +205,6 @@ public class FerramentaSelecionar implements Ferramenta {
                     contexto.getFormas().get(i);
 
             if (forma.contemPonto(x, y)) {
-
                 return forma;
             }
         }
@@ -221,8 +219,13 @@ public class FerramentaSelecionar implements Ferramenta {
             double maxX,
             double maxY) {
 
-        for (Ponto ponto :
-                forma.getPontos()) {
+        if (forma.getPontos() == null
+                || forma.getPontos().isEmpty()) {
+
+            return false;
+        }
+
+        for (Ponto ponto : forma.getPontos()) {
 
             if (ponto.getX() < minX
                     || ponto.getX() > maxX

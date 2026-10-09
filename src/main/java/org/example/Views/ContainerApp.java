@@ -8,6 +8,7 @@ import javafx.scene.paint.Color;
 
 import org.example.Controller.EditorContext;
 import org.example.Controller.FerramentaDesenhar;
+import org.example.Controller.FerramentaEditarVertice;
 import org.example.Controller.FerramentaInserirForma;
 import org.example.Controller.FerramentaSelecionar;
 import org.example.Controller.FerramentaTransformar;
@@ -25,89 +26,68 @@ public class ContainerApp extends BorderPane {
     private final Canvas areaDeDesenho;
     private final EditorContext contexto;
 
-    // Posição atual do mouse no Canvas
     private double mouseX;
     private double mouseY;
 
-    // Indica se o mouse está dentro do Canvas
     private boolean mouseDentroCanvas;
 
     public ContainerApp() {
 
-        // Cria o contexto da aplicação
         contexto = new EditorContext();
 
-        // Ferramenta inicial: desenho de polígonos
         contexto.setFerramentaAtual(
                 new FerramentaDesenhar()
         );
 
-        // Cria o Canvas
         areaDeDesenho = new Canvas(1000, 600);
 
-        // Permite receber eventos do teclado
         areaDeDesenho.setFocusTraversable(true);
         areaDeDesenho.requestFocus();
 
-        // Coloca o Canvas no centro da tela
         setCenter(areaDeDesenho);
 
-        // Configura os eventos
         inicializarEventos();
 
-        // Primeira renderização
         redesenharCanvas();
     }
 
     private void inicializarEventos() {
 
-        // Clique do mouse
         areaDeDesenho.setOnMouseClicked(
                 this::aoClicarMouse
         );
 
-        // Pressionamento do mouse
         areaDeDesenho.setOnMousePressed(
                 this::aoPressionarMouse
         );
 
-        // Arraste do mouse
         areaDeDesenho.setOnMouseDragged(
                 this::aoArrastarMouse
         );
 
-        // Soltura do mouse
         areaDeDesenho.setOnMouseReleased(
                 this::aoSoltarMouse
         );
 
-        // Movimento normal do mouse
         areaDeDesenho.setOnMouseMoved(
                 this::aoMoverMouse
         );
 
-        // Entrada do mouse no Canvas
         areaDeDesenho.setOnMouseEntered(
                 this::aoEntrarCanvas
         );
 
-        // Saída do mouse do Canvas
         areaDeDesenho.setOnMouseExited(
                 this::aoSairCanvas
         );
 
-        // Troca de ferramenta pelo teclado
         areaDeDesenho.setOnKeyPressed(evento -> {
 
             switch (evento.getCode()) {
 
                 case D -> {
 
-                    // Vai para desenho
-                    // e desmarca todas as formas
                     contexto.limparSelecao();
-
-                    // Cancela forma que estivesse em andamento
                     contexto.setFormaEmAndamento(null);
 
                     contexto.setFerramentaAtual(
@@ -119,7 +99,6 @@ public class ContainerApp extends BorderPane {
 
                 case S -> {
 
-                    // Vai para seleção
                     contexto.setFormaEmAndamento(null);
 
                     contexto.setFerramentaAtual(
@@ -131,7 +110,6 @@ public class ContainerApp extends BorderPane {
 
                 case C -> {
 
-                    // Vai para criação de círculo
                     contexto.limparSelecao();
                     contexto.setFormaEmAndamento(null);
 
@@ -146,7 +124,6 @@ public class ContainerApp extends BorderPane {
 
                 case Q -> {
 
-                    // Vai para criação de quadrado
                     contexto.limparSelecao();
                     contexto.setFormaEmAndamento(null);
 
@@ -161,7 +138,6 @@ public class ContainerApp extends BorderPane {
 
                 case H -> {
 
-                    // Vai para criação de hexágono
                     contexto.limparSelecao();
                     contexto.setFormaEmAndamento(null);
 
@@ -176,7 +152,6 @@ public class ContainerApp extends BorderPane {
 
                 case E -> {
 
-                    // Escala
                     contexto.setFormaEmAndamento(null);
 
                     contexto.setFerramentaAtual(
@@ -190,7 +165,6 @@ public class ContainerApp extends BorderPane {
 
                 case R -> {
 
-                    // Rotação
                     contexto.setFormaEmAndamento(null);
 
                     contexto.setFerramentaAtual(
@@ -204,13 +178,63 @@ public class ContainerApp extends BorderPane {
 
                 case T -> {
 
-                    // Cisalhamento
                     contexto.setFormaEmAndamento(null);
 
                     contexto.setFerramentaAtual(
                             new FerramentaTransformar(
                                     FerramentaTransformar.Modo.CISALHAMENTO
                             )
+                    );
+
+                    redesenharCanvas();
+                }
+
+                case V -> {
+
+                    contexto.setFormaEmAndamento(null);
+
+                    contexto.setFerramentaAtual(
+                            new FerramentaEditarVertice()
+                    );
+
+                    redesenharCanvas();
+                }
+
+                case G -> {
+
+                    contexto.agruparSelecionados();
+
+                    redesenharCanvas();
+                }
+
+                case U -> {
+
+                    contexto.desagruparSelecionados();
+
+                    redesenharCanvas();
+                }
+
+                case F -> {
+
+                    contexto.trazerParaFrente();
+
+                    redesenharCanvas();
+                }
+
+                case B -> {
+
+                    contexto.enviarParaTras();
+
+                    redesenharCanvas();
+                }
+
+                case N -> {
+
+                    boolean habilitar =
+                            !contexto.isGridSnappingHabilitado();
+
+                    contexto.setGridSnappingHabilitado(
+                            habilitar
                     );
 
                     redesenharCanvas();
@@ -224,10 +248,7 @@ public class ContainerApp extends BorderPane {
         if (contexto.getFerramentaAtual() != null) {
 
             contexto.getFerramentaAtual()
-                    .aoClicar(
-                            evento,
-                            contexto
-                    );
+                    .aoClicar(evento, contexto);
 
             redesenharCanvas();
         }
@@ -241,10 +262,7 @@ public class ContainerApp extends BorderPane {
         if (contexto.getFerramentaAtual() != null) {
 
             contexto.getFerramentaAtual()
-                    .aoPressionarMouse(
-                            evento,
-                            contexto
-                    );
+                    .aoPressionarMouse(evento, contexto);
 
             redesenharCanvas();
         }
@@ -258,10 +276,7 @@ public class ContainerApp extends BorderPane {
         if (contexto.getFerramentaAtual() != null) {
 
             contexto.getFerramentaAtual()
-                    .aoArrastarMouse(
-                            evento,
-                            contexto
-                    );
+                    .aoArrastarMouse(evento, contexto);
 
             redesenharCanvas();
         }
@@ -275,10 +290,7 @@ public class ContainerApp extends BorderPane {
         if (contexto.getFerramentaAtual() != null) {
 
             contexto.getFerramentaAtual()
-                    .aoSoltarMouse(
-                            evento,
-                            contexto
-                    );
+                    .aoSoltarMouse(evento, contexto);
 
             redesenharCanvas();
         }
@@ -289,7 +301,6 @@ public class ContainerApp extends BorderPane {
         mouseX = evento.getX();
         mouseY = evento.getY();
 
-        // Atualiza a pré-visualização do polígono
         if (contexto.getFormaEmAndamento() != null) {
 
             redesenharCanvas();
@@ -297,13 +308,11 @@ public class ContainerApp extends BorderPane {
         } else if (contexto.getFerramentaAtual()
                 instanceof FerramentaSelecionar) {
 
-            // Atualiza a caixa de seleção
             FerramentaSelecionar ferramenta =
                     (FerramentaSelecionar)
                             contexto.getFerramentaAtual();
 
             if (ferramenta.isArrastandoCaixa()) {
-
                 redesenharCanvas();
             }
         }
@@ -331,7 +340,6 @@ public class ContainerApp extends BorderPane {
         GraphicsContext gc =
                 areaDeDesenho.getGraphicsContext2D();
 
-        // Limpa o Canvas
         gc.clearRect(
                 0,
                 0,
@@ -339,12 +347,12 @@ public class ContainerApp extends BorderPane {
                 areaDeDesenho.getHeight()
         );
 
-        // Desenha o fundo
         desenharFundo();
 
-        // Desenha todas as formas finalizadas
-        for (FormaGeometrica forma :
-                contexto.getFormas()) {
+        // A grade fica atrás das formas.
+        desenharGrade();
+
+        for (FormaGeometrica forma : contexto.getFormas()) {
 
             desenharForma(
                     forma,
@@ -353,7 +361,6 @@ public class ContainerApp extends BorderPane {
             );
         }
 
-        // Desenha a forma em andamento
         if (contexto.getFormaEmAndamento() != null) {
 
             desenharForma(
@@ -363,7 +370,6 @@ public class ContainerApp extends BorderPane {
             );
         }
 
-        // Desenha a caixa de seleção
         desenharCaixaSelecao();
     }
 
@@ -382,6 +388,44 @@ public class ContainerApp extends BorderPane {
         );
     }
 
+    private void desenharGrade() {
+
+        if (!contexto.isGridSnappingHabilitado()) {
+            return;
+        }
+
+        GraphicsContext gc =
+                areaDeDesenho.getGraphicsContext2D();
+
+        double tamanho = contexto.getTamanhoGrade();
+
+        double largura = areaDeDesenho.getWidth();
+        double altura = areaDeDesenho.getHeight();
+
+        gc.setStroke(Color.rgb(230, 230, 230));
+        gc.setLineWidth(0.5);
+
+        for (double x = 0; x <= largura; x += tamanho) {
+
+            gc.strokeLine(
+                    x,
+                    0,
+                    x,
+                    altura
+            );
+        }
+
+        for (double y = 0; y <= altura; y += tamanho) {
+
+            gc.strokeLine(
+                    0,
+                    y,
+                    largura,
+                    y
+            );
+        }
+    }
+
     private void desenharForma(
             FormaGeometrica forma,
             boolean emAndamento,
@@ -390,13 +434,10 @@ public class ContainerApp extends BorderPane {
         GraphicsContext gc =
                 areaDeDesenho.getGraphicsContext2D();
 
-        /*
-         * CÍRCULO
-         */
-        if (forma instanceof Circulo) {
+        if (forma instanceof Circulo circulo) {
 
             desenharCirculo(
-                    (Circulo) forma,
+                    circulo,
                     selecionada
             );
 
@@ -412,20 +453,16 @@ public class ContainerApp extends BorderPane {
         double[] x = new double[pontos.size()];
         double[] y = new double[pontos.size()];
 
-        // Converte os pontos para os arrays do Canvas
         for (int i = 0; i < pontos.size(); i++) {
 
             x[i] = pontos.get(i).getX();
             y[i] = pontos.get(i).getY();
         }
 
-        // Configuração da cor da borda
         try {
 
             gc.setStroke(
-                    Color.web(
-                            forma.getCorBordaHex()
-                    )
+                    Color.web(forma.getCorBordaHex())
             );
 
         } catch (Exception e) {
@@ -433,12 +470,8 @@ public class ContainerApp extends BorderPane {
             gc.setStroke(Color.BLACK);
         }
 
-        // Espessura da borda
-        gc.setLineWidth(
-                forma.getEspessuraBorda()
-        );
+        gc.setLineWidth(forma.getEspessuraBorda());
 
-        // Destaca a forma selecionada
         if (selecionada) {
 
             gc.setStroke(Color.BLUE);
@@ -448,17 +481,13 @@ public class ContainerApp extends BorderPane {
             );
         }
 
-        /*
-         * POLÍGONO, QUADRADO E HEXÁGONO
-         *
-         * Quadrado e hexágono ficam fechados
-         * mesmo durante o arraste.
-         */
-        if ((!emAndamento && pontos.size() >= 3)
-                || forma instanceof Quadrado
-                || forma instanceof Hexagono) {
+        boolean formaFechada =
+                (!emAndamento && pontos.size() >= 3)
+                        || forma instanceof Quadrado
+                        || forma instanceof Hexagono;
 
-            // Cor do preenchimento
+        if (formaFechada) {
+
             try {
 
                 gc.setFill(
@@ -472,14 +501,12 @@ public class ContainerApp extends BorderPane {
                 gc.setFill(Color.WHITE);
             }
 
-            // Preenchimento
             gc.fillPolygon(
                     x,
                     y,
                     pontos.size()
             );
 
-            // Borda fechada
             gc.strokePolygon(
                     x,
                     y,
@@ -488,10 +515,6 @@ public class ContainerApp extends BorderPane {
 
         } else {
 
-            /*
-             * Enquanto o polígono está sendo criado,
-             * desenha as linhas já existentes.
-             */
             if (pontos.size() >= 2) {
 
                 gc.strokePolyline(
@@ -501,40 +524,27 @@ public class ContainerApp extends BorderPane {
                 );
             }
 
-            /*
-             * Pré-visualização do próximo segmento
-             *
-             * Somente para o polígono comum.
-             */
+            // Pré-visualização do próximo segmento do polígono.
             if (emAndamento
-                    && !(forma instanceof Quadrado)
-                    && !(forma instanceof Hexagono)
                     && mouseDentroCanvas
                     && pontos.size() >= 1) {
 
                 Ponto ultimoPonto =
-                        pontos.get(
-                                pontos.size() - 1
-                        );
+                        pontos.get(pontos.size() - 1);
 
                 gc.setStroke(Color.GRAY);
-
                 gc.setLineWidth(1.0);
 
                 gc.strokeLine(
                         ultimoPonto.getX(),
                         ultimoPonto.getY(),
-                        mouseX,
-                        mouseY
+                        contexto.aplicarSnap(mouseX),
+                        contexto.aplicarSnap(mouseY)
                 );
             }
         }
 
-        // Desenha os vértices
-        desenharVertices(
-                pontos,
-                gc
-        );
+        desenharVertices(pontos, gc);
     }
 
     private void desenharCirculo(
@@ -544,22 +554,17 @@ public class ContainerApp extends BorderPane {
         GraphicsContext gc =
                 areaDeDesenho.getGraphicsContext2D();
 
-        double centroX =
-                circulo.getCentro().getX();
+        Ponto centro = circulo.getCentro();
 
-        double centroY =
-                circulo.getCentro().getY();
+        double centroX = centro.getX();
+        double centroY = centro.getY();
 
-        double raio =
-                circulo.getRaio();
+        double raio = circulo.getRaio();
 
-        // Cor da borda
         try {
 
             gc.setStroke(
-                    Color.web(
-                            circulo.getCorBordaHex()
-                    )
+                    Color.web(circulo.getCorBordaHex())
             );
 
         } catch (Exception e) {
@@ -567,12 +572,10 @@ public class ContainerApp extends BorderPane {
             gc.setStroke(Color.BLACK);
         }
 
-        // Espessura da borda
         gc.setLineWidth(
                 circulo.getEspessuraBorda()
         );
 
-        // Destaque da seleção
         if (selecionada) {
 
             gc.setStroke(Color.BLUE);
@@ -582,7 +585,6 @@ public class ContainerApp extends BorderPane {
             );
         }
 
-        // Cor de preenchimento
         try {
 
             gc.setFill(
@@ -596,23 +598,48 @@ public class ContainerApp extends BorderPane {
             gc.setFill(Color.WHITE);
         }
 
-        // Preenchimento do círculo
-        gc.fillOval(
-                centroX - raio,
-                centroY - raio,
-                raio * 2,
-                raio * 2
-        );
+        if (circulo.isCisalhado()) {
 
-        // Borda do círculo
-        gc.strokeOval(
-                centroX - raio,
-                centroY - raio,
-                raio * 2,
-                raio * 2
-        );
+            List<Ponto> pontos = circulo.getPontos();
 
-        // Marca o centro
+            double[] x = new double[pontos.size()];
+            double[] y = new double[pontos.size()];
+
+            for (int i = 0; i < pontos.size(); i++) {
+
+                x[i] = pontos.get(i).getX();
+                y[i] = pontos.get(i).getY();
+            }
+
+            gc.fillPolygon(
+                    x,
+                    y,
+                    pontos.size()
+            );
+
+            gc.strokePolygon(
+                    x,
+                    y,
+                    pontos.size()
+            );
+
+        } else {
+
+            gc.fillOval(
+                    centroX - raio,
+                    centroY - raio,
+                    raio * 2,
+                    raio * 2
+            );
+
+            gc.strokeOval(
+                    centroX - raio,
+                    centroY - raio,
+                    raio * 2,
+                    raio * 2
+            );
+        }
+
         gc.setFill(Color.BLACK);
 
         gc.fillOval(
@@ -644,54 +671,35 @@ public class ContainerApp extends BorderPane {
 
     private void desenharCaixaSelecao() {
 
-        // Só desenha a caixa na ferramenta de seleção
         if (!(contexto.getFerramentaAtual()
-                instanceof FerramentaSelecionar)) {
+                instanceof FerramentaSelecionar ferramenta)) {
 
             return;
         }
 
-        FerramentaSelecionar ferramenta =
-                (FerramentaSelecionar)
-                        contexto.getFerramentaAtual();
-
-        // Não há caixa para desenhar
         if (!ferramenta.isArrastandoCaixa()) {
-
             return;
         }
 
-        double startX =
-                ferramenta.getSelecaoStartX();
-
-        double startY =
-                ferramenta.getSelecaoStartY();
-
-        double largura =
-                mouseX - startX;
-
-        double altura =
-                mouseY - startY;
+        double startX = ferramenta.getSelecaoStartX();
+        double startY = ferramenta.getSelecaoStartY();
 
         GraphicsContext gc =
                 areaDeDesenho.getGraphicsContext2D();
 
         gc.setStroke(Color.GRAY);
-
         gc.setLineWidth(1.0);
-
-        // Caixa tracejada
         gc.setLineDashes(5);
 
         gc.strokeRect(
                 Math.min(startX, mouseX),
                 Math.min(startY, mouseY),
-                Math.abs(largura),
-                Math.abs(altura)
+                Math.abs(mouseX - startX),
+                Math.abs(mouseY - startY)
         );
 
-        // Volta para linha contínua
-        gc.setLineDashes(null);
+        // Restaura a linha contínua para os próximos desenhos.
+        gc.setLineDashes();
     }
 
     public Canvas getAreaDeDesenho() {

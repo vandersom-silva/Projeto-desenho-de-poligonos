@@ -13,9 +13,9 @@ public class Hexagono extends FormaBase {
             );
         }
 
-        if (raio <= 0) {
+        if (!Double.isFinite(raio) || raio <= 0) {
             throw new IllegalArgumentException(
-                    "O raio deve ser maior que zero."
+                    "O raio deve ser positivo e finito."
             );
         }
 
@@ -26,84 +26,110 @@ public class Hexagono extends FormaBase {
     }
 
     public Ponto getCentro() {
-        return centro;
+        return centro.clonar();
     }
 
     public double getRaio() {
         return raio;
     }
 
-    public void setRaio(double raio) {
+    public void setRaio(double novoRaio) {
 
-        if (raio <= 0) {
+        if (!Double.isFinite(novoRaio) || novoRaio <= 0) {
             throw new IllegalArgumentException(
-                    "O raio deve ser maior que zero."
+                    "O raio deve ser positivo e finito."
             );
         }
 
-        this.raio = raio;
+        if (raio <= 0) {
+            raio = novoRaio;
+            calcularVertices();
+            return;
+        }
 
-        calcularVertices();
+        // Redimensiona a geometria existente, sem
+        // apagar a orientação ou o cisalhamento.
+        double fator = novoRaio / raio;
+
+        for (Ponto ponto : pontos) {
+
+            double dx = ponto.getX() - centro.getX();
+            double dy = ponto.getY() - centro.getY();
+
+            ponto.setX(centro.getX() + dx * fator);
+            ponto.setY(centro.getY() + dy * fator);
+        }
+
+        raio = novoRaio;
     }
 
     private void calcularVertices() {
 
         pontos.clear();
 
-        /*
-         * Hexágono regular.
-         *
-         * Os seis vértices ficam separados por
-         * 60 graus.
-         */
+        // Seis vértices separados por 60 graus.
         for (int i = 0; i < 6; i++) {
 
-            double angulo =
-                    Math.toRadians(i * 60);
+            double angulo = Math.toRadians(i * 60);
 
-            double x =
-                    centro.getX()
-                            + raio * Math.cos(angulo);
+            double x = centro.getX()
+                    + raio * Math.cos(angulo);
 
-            double y =
-                    centro.getY()
-                            + raio * Math.sin(angulo);
+            double y = centro.getY()
+                    + raio * Math.sin(angulo);
 
-            pontos.add(
-                    new Ponto(x, y)
-            );
+            pontos.add(new Ponto(x, y));
         }
     }
 
     @Override
     public void adicionarPonto(Ponto p) {
-        /*
-         * Os vértices são calculados automaticamente.
-         */
+        // Os vértices são calculados automaticamente.
     }
 
     @Override
     public double calcularArea() {
 
-        /*
-         * Área do hexágono regular:
-         *
-         * A = (3 * raiz(3) / 2) * lado²
-         *
-         * Como o lado = raio:
-         */
-        return (3 * Math.sqrt(3) / 2)
-                * raio * raio;
+        if (pontos.size() < 3) {
+            return 0;
+        }
+
+        double soma = 0;
+
+        for (int i = 0; i < pontos.size(); i++) {
+
+            Ponto atual = pontos.get(i);
+
+            Ponto proximo =
+                    pontos.get((i + 1) % pontos.size());
+
+            soma += atual.getX() * proximo.getY()
+                    - proximo.getX() * atual.getY();
+        }
+
+        return Math.abs(soma) / 2.0;
     }
 
     @Override
     public double calcularPerimetro() {
 
-        /*
-         * Em um hexágono regular,
-         * lado = raio.
-         */
-        return 6 * raio;
+        if (pontos.size() < 2) {
+            return 0;
+        }
+
+        double perimetro = 0;
+
+        for (int i = 0; i < pontos.size(); i++) {
+
+            Ponto atual = pontos.get(i);
+
+            Ponto proximo =
+                    pontos.get((i + 1) % pontos.size());
+
+            perimetro += atual.distancia(proximo);
+        }
+
+        return perimetro;
     }
 
     @Override
@@ -112,36 +138,24 @@ public class Hexagono extends FormaBase {
     }
 
     @Override
-    public boolean contemPonto(
-            double px,
-            double py) {
+    public boolean contemPonto(double px, double py) {
 
         boolean dentro = false;
 
-        for (int i = 0,
-             j = pontos.size() - 1;
+        for (int i = 0, j = pontos.size() - 1;
              i < pontos.size();
              j = i++) {
 
-            double xi =
-                    pontos.get(i).getX();
+            double xi = pontos.get(i).getX();
+            double yi = pontos.get(i).getY();
 
-            double yi =
-                    pontos.get(i).getY();
-
-            double xj =
-                    pontos.get(j).getX();
-
-            double yj =
-                    pontos.get(j).getY();
+            double xj = pontos.get(j).getX();
+            double yj = pontos.get(j).getY();
 
             boolean intersecao =
                     ((yi > py) != (yj > py))
-                            &&
-                            (px < (xj - xi)
-                                    * (py - yi)
-                                    / (yj - yi)
-                                    + xi);
+                            && (px < (xj - xi) * (py - yi)
+                            / (yj - yi) + xi);
 
             if (intersecao) {
                 dentro = !dentro;
@@ -152,52 +166,61 @@ public class Hexagono extends FormaBase {
     }
 
     @Override
-    public void transladar(
-            double dx,
-            double dy) {
+    public void transladar(double dx, double dy) {
 
         centro.mover(dx, dy);
 
-        calcularVertices();
+        // Move os vértices existentes para preservar
+        // as transformações realizadas anteriormente.
+        for (Ponto ponto : pontos) {
+            ponto.mover(dx, dy);
+        }
     }
 
     @Override
     public void escalar(double fator) {
 
-        if (fator <= 0) {
+        if (!Double.isFinite(fator) || fator <= 0) {
             throw new IllegalArgumentException(
-                    "O fator de escala deve ser maior que zero."
+                    "O fator de escala deve ser positivo e finito."
             );
         }
 
-        raio *= fator;
+        // Escala em torno do centro atual.
+        for (Ponto ponto : pontos) {
 
-        calcularVertices();
+            double dx = ponto.getX() - centro.getX();
+            double dy = ponto.getY() - centro.getY();
+
+            ponto.setX(centro.getX() + dx * fator);
+            ponto.setY(centro.getY() + dy * fator);
+        }
+
+        raio *= fator;
     }
 
     @Override
-    public void rotacionar(
-            double anguloRadianos) {
+    public void rotacionar(double anguloRadianos) {
+
+        if (!Double.isFinite(anguloRadianos)) {
+            throw new IllegalArgumentException(
+                    "O ângulo deve ser finito."
+            );
+        }
+
+        double cos = Math.cos(anguloRadianos);
+        double sin = Math.sin(anguloRadianos);
 
         for (Ponto ponto : pontos) {
 
-            double dx =
-                    ponto.getX()
-                            - centro.getX();
+            double dx = ponto.getX() - centro.getX();
+            double dy = ponto.getY() - centro.getY();
 
-            double dy =
-                    ponto.getY()
-                            - centro.getY();
+            double novoX = centro.getX()
+                    + dx * cos - dy * sin;
 
-            double novoX =
-                    centro.getX()
-                            + dx * Math.cos(anguloRadianos)
-                            - dy * Math.sin(anguloRadianos);
-
-            double novoY =
-                    centro.getY()
-                            + dx * Math.sin(anguloRadianos)
-                            + dy * Math.cos(anguloRadianos);
+            double novoY = centro.getY()
+                    + dx * sin + dy * cos;
 
             ponto.setX(novoX);
             ponto.setY(novoY);
@@ -205,70 +228,68 @@ public class Hexagono extends FormaBase {
     }
 
     @Override
-    public void cisalhar(
-            double shx,
-            double shy) {
+    public void cisalhar(double shx, double shy) {
 
+        if (!Double.isFinite(shx) || !Double.isFinite(shy)) {
+            throw new IllegalArgumentException(
+                    "Os fatores de cisalhamento devem ser finitos."
+            );
+        }
+
+        // Transforma os vértices atuais diretamente.
         for (Ponto ponto : pontos) {
 
             double x = ponto.getX();
             double y = ponto.getY();
 
-            double novoX =
-                    x + shx * y;
-
-            double novoY =
-                    y + shy * x;
-
-            ponto.setX(novoX);
-            ponto.setY(novoY);
+            ponto.setX(x + shx * y);
+            ponto.setY(y + shy * x);
         }
+
+        // Aplica a mesma transformação ao centro.
+        double centroX = centro.getX();
+        double centroY = centro.getY();
+
+        centro.setX(centroX + shx * centroY);
+        centro.setY(centroY + shy * centroX);
+
+        atualizarRaioMedio();
+    }
+
+    private void atualizarRaioMedio() {
+
+        if (pontos.isEmpty()) {
+            return;
+        }
+
+        double soma = 0;
+
+        for (Ponto ponto : pontos) {
+            soma += centro.distancia(ponto);
+        }
+
+        raio = soma / pontos.size();
     }
 
     @Override
     public FormaGeometrica clonar() {
 
-        Hexagono copia =
-                new Hexagono(
-                        centro,
-                        raio
-                );
+        Hexagono copia = new Hexagono(centro, raio);
 
-        copia.setCorPreenchimentoHex(
-                this.corPreenchimentoHex
-        );
-
-        copia.setCorBordaHex(
-                this.corBordaHex
-        );
-
-        copia.setEspessuraBorda(
-                this.espessuraBorda
-        );
-
-        copia.setGroupId(
-                this.groupId
-        );
-
-        /*
-         * Copia as coordenadas atuais dos vértices.
-         */
+        // Preserva as coordenadas atuais dos seis vértices.
         for (int i = 0; i < pontos.size(); i++) {
 
-            Ponto original =
-                    pontos.get(i);
+            Ponto original = pontos.get(i);
+            Ponto destino = copia.pontos.get(i);
 
-            Ponto copiaPonto =
-                    copia.pontos.get(i);
-
-            copiaPonto.setX(
-                    original.getX()
-            );
-
-            copiaPonto.setY(
-                    original.getY()
-            );
+            destino.setX(original.getX());
+            destino.setY(original.getY());
         }
+
+        copia.setCorPreenchimentoHex(corPreenchimentoHex);
+        copia.setCorBordaHex(corBordaHex);
+        copia.setEspessuraBorda(espessuraBorda);
+        copia.setGroupId(groupId);
 
         return copia;
     }

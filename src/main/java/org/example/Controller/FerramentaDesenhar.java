@@ -1,6 +1,7 @@
 package org.example.Controller;
 
 import javafx.scene.input.MouseEvent;
+
 import org.example.Models.Ponto;
 import org.example.Models.Poligono;
 
@@ -29,12 +30,13 @@ public class FerramentaDesenhar implements Ferramenta {
             MouseEvent evento,
             EditorContext contexto) {
 
-        double x = evento.getX();
-        double y = evento.getY();
+        // Aplica o Snap às coordenadas do mouse.
+        double x = contexto.aplicarSnap(evento.getX());
+        double y = contexto.aplicarSnap(evento.getY());
 
-        // Primeiro clique: cria um novo polígono
         if (contexto.getFormaEmAndamento() == null) {
 
+            // Primeiro clique: inicia o polígono.
             Poligono poligono = new Poligono();
 
             poligono.adicionarPonto(
@@ -48,18 +50,17 @@ public class FerramentaDesenhar implements Ferramenta {
             Poligono poligono =
                     (Poligono) contexto.getFormaEmAndamento();
 
-            // Duplo clique: tenta finalizar o polígono
+            // Duplo clique: finaliza se houver pelo menos
+            // três pontos.
             if (evento.getClickCount() == 2) {
 
-                // O polígono precisa ter pelo menos 3 pontos
                 if (poligono.getQuantidadePontos() >= 3) {
-
                     contexto.finalizarFormaEmAndamento();
                 }
 
             } else {
 
-                // Clique normal: adiciona um novo vértice
+                // Clique normal: adiciona um vértice.
                 poligono.adicionarPonto(
                         new Ponto(x, y)
                 );
