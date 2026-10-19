@@ -1,4 +1,4 @@
- package org.example.Controller;
+package org.example.Controller;
 
 import javafx.scene.input.MouseEvent;
 
@@ -19,6 +19,9 @@ public class FerramentaSelecionar implements Ferramenta {
     private double selecaoStartX;
     private double selecaoStartY;
 
+    // Evita registrar vários estados durante o mesmo arraste
+    private boolean estadoRegistradoDuranteArraste;
+
     @Override
     public void aoPressionarMouse(
             MouseEvent evento,
@@ -27,15 +30,19 @@ public class FerramentaSelecionar implements Ferramenta {
         double x = evento.getX();
         double y = evento.getY();
 
-        // Procura a forma clicada usando as coordenadas
-        // reais do mouse para não prejudicar a seleção.
+        // Reinicia o controle do histórico para este gesto
+        estadoRegistradoDuranteArraste = false;
+
+        // Procura a forma clicada
         FormaGeometrica formaClicada =
                 encontrarForma(x, y, contexto);
 
         if (formaClicada != null) {
 
-            // Seleciona a forma ou seu grupo, caso
-            // ainda não esteja selecionada.
+            /*
+             * Se a forma ainda não estiver selecionada,
+             * seleciona a forma ou todo o grupo.
+             */
             if (!contexto.estaSelecionada(formaClicada)) {
 
                 contexto.selecionarFormaOuGrupo(
@@ -44,17 +51,14 @@ public class FerramentaSelecionar implements Ferramenta {
 
             } else {
 
-                // Registra qual forma foi clicada por último.
+                // Mantém a seleção múltipla e registra
+                // qual forma foi clicada por último.
                 contexto.setFormaPrincipalSelecionada(
                         formaClicada
                 );
             }
 
-            /*
-             * Guarda a posição inicial do mouse.
-             * Se o Snap estiver ligado, utiliza a
-             * posição ajustada à grade.
-             */
+            // Posição inicial usada no movimento.
             ultimoX = contexto.aplicarSnap(x);
             ultimoY = contexto.aplicarSnap(y);
 
@@ -62,10 +66,10 @@ public class FerramentaSelecionar implements Ferramenta {
 
         } else {
 
-            // Clique fora das formas: desmarca todas.
+            // Clique fora das formas: desmarca tudo.
             contexto.limparSelecao();
 
-            // Inicia uma possível caixa de seleção.
+            // Começa uma possível caixa de seleção.
             arrastandoCaixa = true;
 
             selecaoStartX = x;
@@ -84,30 +88,36 @@ public class FerramentaSelecionar implements Ferramenta {
         double x = evento.getX();
         double y = evento.getY();
 
+        // Arraste para mover formas selecionadas
         if (!arrastandoCaixa
                 && !contexto.getSelecionados().isEmpty()) {
 
-            /*
-             * Converte a posição atual para a grade
-             * quando o Snap estiver ativado.
-             */
-            double posicaoX =
-                    contexto.aplicarSnap(x);
+            // Aplica Snap to Grid, se estiver habilitado.
+            double posicaoX = contexto.aplicarSnap(x);
+            double posicaoY = contexto.aplicarSnap(y);
 
-            double posicaoY =
-                    contexto.aplicarSnap(y);
-
-            // Calcula o deslocamento.
             double dx = posicaoX - ultimoX;
             double dy = posicaoY - ultimoY;
 
-            /*
-             * Move todas as formas selecionadas,
-             * incluindo os membros dos grupos.
-             * Todas recebem exatamente o mesmo deslocamento.
-             */
             if (dx != 0 || dy != 0) {
 
+                /*
+                 * Salva o estado anterior somente uma vez
+                 * antes da primeira movimentação.
+                 */
+                if (!estadoRegistradoDuranteArraste) {
+
+                    contexto.registrarEstado();
+
+                    estadoRegistradoDuranteArraste = true;
+                }
+
+                /*
+                 * Move todas as formas selecionadas,
+                 * incluindo os membros dos grupos.
+                 *
+                 * Todas recebem o mesmo deslocamento.
+                 */
                 for (FormaGeometrica forma :
                         contexto.getFormasAfetadasPorSelecao()) {
 
@@ -115,10 +125,12 @@ public class FerramentaSelecionar implements Ferramenta {
                 }
             }
 
-            // Atualiza a última posição já ajustada à grade.
+            // Atualiza a posição anterior do mouse.
             ultimoX = posicaoX;
             ultimoY = posicaoY;
         }
+
+        // A caixa de seleção é desenhada pelo ContainerApp.
 
         contexto.requestRedraw();
         contexto.requestStatsUpdate();
@@ -134,6 +146,8 @@ public class FerramentaSelecionar implements Ferramenta {
 
         if (arrastandoCaixa) {
 
+            // Calcula os limites da caixa,
+            // independentemente da direção do arraste.
             double minX = Math.min(selecaoStartX, x);
             double maxX = Math.max(selecaoStartX, x);
 
@@ -142,7 +156,10 @@ public class FerramentaSelecionar implements Ferramenta {
 
             Set<String> idsDosGrupos = new HashSet<>();
 
-            // Seleciona formas totalmente dentro da caixa.
+            /*
+             * Seleciona as formas cujos vértices
+             * estiverem completamente dentro da caixa.
+             */
             for (FormaGeometrica forma :
                     contexto.getFormas()) {
 
@@ -157,13 +174,18 @@ public class FerramentaSelecionar implements Ferramenta {
 
                     String groupId = forma.getGroupId();
 
-                    if (groupId != null && !groupId.isBlank()) {
+                    if (groupId != null
+                            && !groupId.isBlank()) {
+
                         idsDosGrupos.add(groupId);
                     }
                 }
             }
 
-            // Inclui os demais membros dos grupos encontrados.
+            /*
+             * Se um membro de um grupo for selecionado
+             * pela caixa, inclui os demais membros.
+             */
             for (FormaGeometrica forma :
                     contexto.getFormas()) {
 
@@ -177,7 +199,9 @@ public class FerramentaSelecionar implements Ferramenta {
             }
         }
 
+        // Finaliza os estados do gesto atual.
         arrastandoCaixa = false;
+        estadoRegistradoDuranteArraste = false;
 
         contexto.requestRedraw();
         contexto.requestStatsUpdate();
@@ -191,12 +215,16 @@ public class FerramentaSelecionar implements Ferramenta {
         // A seleção é tratada no pressionamento do mouse.
     }
 
+    /**
+     * Encontra a forma clicada.
+     * Percorre a lista de trás para frente para
+     * priorizar a forma que está por cima.
+     */
     private FormaGeometrica encontrarForma(
             double x,
             double y,
             EditorContext contexto) {
 
-        // Prioriza a forma desenhada por cima.
         for (int i = contexto.getFormas().size() - 1;
              i >= 0;
              i--) {
@@ -212,6 +240,10 @@ public class FerramentaSelecionar implements Ferramenta {
         return null;
     }
 
+    /**
+     * Verifica se todos os vértices da forma estão
+     * dentro dos limites da caixa de seleção.
+     */
     private boolean formaDentroDaCaixa(
             FormaGeometrica forma,
             double minX,
@@ -238,6 +270,9 @@ public class FerramentaSelecionar implements Ferramenta {
 
         return true;
     }
+
+    // Métodos usados pelo ContainerApp
+    // para desenhar a caixa de seleção.
 
     public boolean isArrastandoCaixa() {
         return arrastandoCaixa;

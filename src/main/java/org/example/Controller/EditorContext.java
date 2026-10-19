@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
 
 public class EditorContext {
 
@@ -21,6 +23,11 @@ public class EditorContext {
     private boolean gridSnappingHabilitado;
 
     private static final double TAMANHO_GRADE = 20.0;
+
+    private final HistoricoController historicoController =
+            new HistoricoController();
+
+
 
     public EditorContext() {
 
@@ -110,8 +117,9 @@ public class EditorContext {
 
         if (formaEmAndamento != null) {
 
-            formas.add(formaEmAndamento);
+            registrarEstado();
 
+            formas.add(formaEmAndamento);
             formaEmAndamento = null;
 
             requestRedraw();
@@ -371,5 +379,167 @@ public class EditorContext {
 
     public void requestStatsUpdate() {
         // O painel de status será conectado posteriormente.
+    }
+
+    // =========================
+// HISTÓRICO: UNDO / REDO
+// =========================
+
+    /**
+     * Registra o estado das formas antes de uma operação.
+     */
+    public void registrarEstado() {
+        historicoController.registrarEstado(formas);
+    }
+
+    /**
+     * Desfaz a última operação que modificou as formas.
+     */
+    public boolean desfazer() {
+
+        List<FormaGeometrica> estadoAnterior =
+                historicoController.desfazer(formas);
+
+        if (estadoAnterior == null) {
+            return false;
+        }
+
+        formas.clear();
+        formas.addAll(estadoAnterior);
+
+        // Limpa operações que estavam em andamento
+        // e referências às formas antigas.
+        formaEmAndamento = null;
+        limparSelecao();
+
+        requestRedraw();
+        requestStatsUpdate();
+
+        return true;
+    }
+
+    /**
+     * Refaz a última operação desfeita.
+     */
+    public boolean refazer() {
+
+        List<FormaGeometrica> estadoSeguinte =
+                historicoController.refazer(formas);
+
+        if (estadoSeguinte == null) {
+            return false;
+        }
+
+        formas.clear();
+        formas.addAll(estadoSeguinte);
+
+        formaEmAndamento = null;
+        limparSelecao();
+
+        requestRedraw();
+        requestStatsUpdate();
+
+        return true;
+    }
+
+    public boolean podeDesfazer() {
+        return historicoController.podeDesfazer();
+    }
+
+    public boolean podeRefazer() {
+        return historicoController.podeRefazer();
+    }
+
+    // =========================
+// DUPLICAÇÃO DE FORMAS
+// =========================
+
+    public void duplicarSelecionados() {
+
+        // Obtém as formas selecionadas e os membros
+        // dos grupos selecionados.
+        List<FormaGeometrica> originais =
+                getFormasAfetadasPorSelecao();
+
+        if (originais.isEmpty()) {
+            return;
+        }
+
+        // Guarda a posição da forma principal selecionada.
+        FormaGeometrica principalOriginal =
+                formaPrincipalSelecionada;
+
+        int indicePrincipal =
+                originais.indexOf(principalOriginal);
+
+        // Registra o estado anterior para permitir Ctrl + Z.
+        registrarEstado();
+
+        List<FormaGeometrica> copias =
+                new ArrayList<>();
+
+        // Cada grupo duplicado recebe um novo identificador.
+        Map<String, String> novosIdsDosGrupos =
+                new HashMap<>();
+
+        // Distância usada para posicionar as cópias.
+        double deslocamento = 20.0;
+
+        for (FormaGeometrica original : originais) {
+
+            // Cria uma cópia independente.
+            FormaGeometrica copia = original.clonar();
+
+            // Preserva a estrutura dos grupos sem misturar
+            // as cópias com as formas originais.
+            String idOriginal = original.getGroupId();
+
+            if (idOriginal != null && !idOriginal.isBlank()) {
+
+                String novoId = novosIdsDosGrupos.computeIfAbsent(
+                        idOriginal,
+                        id -> java.util.UUID.randomUUID().toString()
+                );
+
+                copia.setGroupId(novoId);
+
+            } else {
+
+                copia.setGroupId(null);
+            }
+
+            // Desloca a cópia para facilitar sua identificação.
+            copia.transladar(
+                    deslocamento,
+                    deslocamento
+            );
+
+            copias.add(copia);
+        }
+
+        // Adiciona as cópias ao editor.
+        formas.addAll(copias);
+
+        // Seleciona as cópias, deixando as originais
+        // desmarcadas.
+        selecionados.clear();
+        selecionados.addAll(copias);
+
+        // Mantém como principal a cópia correspondente
+        // à forma principal da seleção original.
+        if (indicePrincipal >= 0
+                && indicePrincipal < copias.size()) {
+
+            formaPrincipalSelecionada =
+                    copias.get(indicePrincipal);
+
+        } else {
+
+            formaPrincipalSelecionada =
+                    copias.get(0);
+        }
+
+        requestRedraw();
+        requestStatsUpdate();
     }
 }

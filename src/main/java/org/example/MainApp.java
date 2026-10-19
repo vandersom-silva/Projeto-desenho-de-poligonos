@@ -16,8 +16,8 @@ public class MainApp extends Application {
 
         Scene scene = new Scene(
                 container,
-                1000,
-                600
+                1280,
+                650
         );
 
         stage.setTitle("Editor Vetorial");
