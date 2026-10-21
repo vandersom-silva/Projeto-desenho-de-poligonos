@@ -1,7 +1,7 @@
-
 package org.example.Views;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
@@ -10,6 +10,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
@@ -22,7 +23,9 @@ import org.example.Controller.FerramentaSelecionar;
 import org.example.Controller.FerramentaTransformar;
 import org.example.Models.FormaGeometrica;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class BarraLateralView extends ScrollPane {
 
@@ -44,6 +47,9 @@ public class BarraLateralView extends ScrollPane {
     private final Label mensagemEstilo =
             new Label("Selecione uma forma para editar o estilo.");
 
+    private final Label mensagemTranslacao =
+            new Label("Selecione uma ou mais formas para movê-las.");
+
     private final ToggleButton botaoGrade =
             new ToggleButton();
 
@@ -63,9 +69,7 @@ public class BarraLateralView extends ScrollPane {
 
         VBox painel = new VBox(10);
         painel.setPadding(new Insets(12));
-        painel.setStyle(
-                "-fx-background-color: #f3f4f6;"
-        );
+        painel.setStyle("-fx-background-color: #f3f4f6;");
 
         Label titulo = new Label("Editor Vetorial");
         titulo.setStyle(
@@ -75,6 +79,7 @@ public class BarraLateralView extends ScrollPane {
         painel.getChildren().addAll(
                 titulo,
                 construirSecaoFerramentas(),
+                construirSecaoTranslacao(),
                 construirSecaoEstilos(),
                 construirSecaoOrganizacao(),
                 construirSecaoHistorico()
@@ -162,6 +167,133 @@ public class BarraLateralView extends ScrollPane {
     }
 
     // ==========================================
+    // TRANSLADAÇÃO COM SETAS
+    // ==========================================
+
+    private TitledPane construirSecaoTranslacao() {
+
+        VBox conteudo = new VBox(8);
+        conteudo.setPadding(new Insets(8));
+        conteudo.setAlignment(Pos.CENTER);
+
+        Label titulo = new Label("Mover formas");
+        titulo.setStyle(
+                "-fx-font-size: 14px; -fx-font-weight: bold;"
+        );
+
+        Label descricao = new Label(
+                "Use as setas para mover as formas selecionadas."
+        );
+        descricao.setWrapText(true);
+
+        GridPane setas = new GridPane();
+        setas.setHgap(6);
+        setas.setVgap(6);
+        setas.setAlignment(Pos.CENTER);
+
+        Button cima = criarBotaoSeta("↑", 0, -1);
+        Button esquerda = criarBotaoSeta("←", -1, 0);
+        Button baixo = criarBotaoSeta("↓", 0, 1);
+        Button direita = criarBotaoSeta("→", 1, 0);
+
+        setas.add(cima, 1, 0);
+        setas.add(esquerda, 0, 1);
+        setas.add(baixo, 1, 1);
+        setas.add(direita, 2, 1);
+
+        mensagemTranslacao.setWrapText(true);
+        mensagemTranslacao.setStyle(
+                "-fx-font-size: 11px; -fx-text-fill: #555555;"
+        );
+
+        conteudo.getChildren().addAll(
+                titulo,
+                descricao,
+                setas,
+                mensagemTranslacao
+        );
+
+        return criarSecao("Translação", conteudo);
+    }
+
+    private Button criarBotaoSeta(
+            String simbolo,
+            double direcaoX,
+            double direcaoY) {
+
+        Button botao = new Button(simbolo);
+
+        botao.setMinSize(42, 38);
+        botao.setStyle(
+                "-fx-font-size: 18px; -fx-font-weight: bold;"
+        );
+        botao.setFocusTraversable(false);
+
+        botao.setOnAction(
+                evento -> transladarSelecionados(direcaoX, direcaoY)
+        );
+
+        return botao;
+    }
+
+    private void transladarSelecionados(
+            double direcaoX,
+            double direcaoY) {
+
+        List<FormaGeometrica> alvos =
+                contexto.getFormasAfetadasPorSelecao();
+
+        if (alvos == null || alvos.isEmpty()) {
+
+            mensagemTranslacao.setText(
+                    "Selecione uma forma primeiro usando a ferramenta S."
+            );
+
+            return;
+        }
+
+        double passo;
+
+        if (contexto.isGridSnappingHabilitado()) {
+
+            passo = contexto.getTamanhoGrade();
+
+            if (!Double.isFinite(passo) || passo <= 0) {
+                passo = 10.0;
+            }
+
+        } else {
+
+            passo = 10.0;
+        }
+
+        double dx = direcaoX * passo;
+        double dy = direcaoY * passo;
+
+        // Evita mover uma mesma forma duas vezes.
+        Set<FormaGeometrica> formasUnicas =
+                new LinkedHashSet<>(alvos);
+
+        // Guarda o estado anterior para permitir Ctrl + Z.
+        contexto.registrarEstado();
+
+        // Executa a translação das formas selecionadas.
+        for (FormaGeometrica forma : formasUnicas) {
+            forma.transladar(dx, dy);
+        }
+
+        mensagemTranslacao.setText(
+                String.format(
+                        "Movimento aplicado: dx = %.1f, dy = %.1f",
+                        dx,
+                        dy
+                )
+        );
+
+        atualizarInterface();
+    }
+
+    // ==========================================
     // ESTILOS
     // ==========================================
 
@@ -182,13 +314,10 @@ public class BarraLateralView extends ScrollPane {
         conteudo.getChildren().addAll(
                 new Label("Cor de preenchimento"),
                 corPreenchimento,
-
                 new Label("Cor da borda"),
                 corBorda,
-
                 textoEspessura,
                 espessuraBorda,
-
                 mensagemEstilo
         );
 
@@ -228,14 +357,12 @@ public class BarraLateralView extends ScrollPane {
                 }
         );
 
-        // Aplica a espessura quando o usuário termina
-        // de arrastar o controle deslizante.
-        espessuraBorda.setOnMouseReleased(event ->
-                aplicarEspessuraBorda()
+        espessuraBorda.setOnMouseReleased(
+                event -> aplicarEspessuraBorda()
         );
 
-        espessuraBorda.setOnKeyReleased(event ->
-                aplicarEspessuraBorda()
+        espessuraBorda.setOnKeyReleased(
+                event -> aplicarEspessuraBorda()
         );
     }
 
@@ -245,9 +372,11 @@ public class BarraLateralView extends ScrollPane {
                 contexto.getFormasAfetadasPorSelecao();
 
         if (alvos.isEmpty()) {
+
             mensagemEstilo.setText(
                     "Selecione uma forma primeiro."
             );
+
             return;
         }
 
@@ -261,9 +390,7 @@ public class BarraLateralView extends ScrollPane {
             forma.setCorPreenchimentoHex(hex);
         }
 
-        mensagemEstilo.setText(
-                "Preenchimento atualizado."
-        );
+        mensagemEstilo.setText("Preenchimento atualizado.");
 
         atualizarInterface();
     }
@@ -274,9 +401,11 @@ public class BarraLateralView extends ScrollPane {
                 contexto.getFormasAfetadasPorSelecao();
 
         if (alvos.isEmpty()) {
+
             mensagemEstilo.setText(
                     "Selecione uma forma primeiro."
             );
+
             return;
         }
 
@@ -290,9 +419,7 @@ public class BarraLateralView extends ScrollPane {
             forma.setCorBordaHex(hex);
         }
 
-        mensagemEstilo.setText(
-                "Cor da borda atualizada."
-        );
+        mensagemEstilo.setText("Cor da borda atualizada.");
 
         atualizarInterface();
     }
@@ -318,9 +445,7 @@ public class BarraLateralView extends ScrollPane {
             forma.setEspessuraBorda(espessura);
         }
 
-        mensagemEstilo.setText(
-                "Espessura da borda atualizada."
-        );
+        mensagemEstilo.setText("Espessura da borda atualizada.");
 
         atualizarInterface();
     }
@@ -360,22 +485,24 @@ public class BarraLateralView extends ScrollPane {
             FormaGeometrica forma = selecionados.get(0);
 
             try {
+
                 corPreenchimento.setValue(
-                        Color.web(
-                                forma.getCorPreenchimentoHex()
-                        )
+                        Color.web(forma.getCorPreenchimentoHex())
                 );
+
             } catch (Exception ignored) {
+
                 corPreenchimento.setValue(Color.WHITE);
             }
 
             try {
+
                 corBorda.setValue(
-                        Color.web(
-                                forma.getCorBordaHex()
-                        )
+                        Color.web(forma.getCorBordaHex())
                 );
+
             } catch (Exception ignored) {
+
                 corBorda.setValue(Color.BLACK);
             }
 
@@ -422,25 +549,30 @@ public class BarraLateralView extends ScrollPane {
 
         conteudo.getChildren().addAll(
 
-                criarBotao("Agrupar selecionados (G)", () -> {
-                    contexto.agruparSelecionados();
-                }),
+                criarBotao(
+                        "Agrupar selecionados (G)",
+                        contexto::agruparSelecionados
+                ),
 
-                criarBotao("Desagrupar (U)", () -> {
-                    contexto.desagruparSelecionados();
-                }),
+                criarBotao(
+                        "Desagrupar (U)",
+                        contexto::desagruparSelecionados
+                ),
 
-                criarBotao("Duplicar (Ctrl+D)", () -> {
-                    contexto.duplicarSelecionados();
-                }),
+                criarBotao(
+                        "Duplicar (Ctrl+D)",
+                        contexto::duplicarSelecionados
+                ),
 
-                criarBotao("Trazer para frente (F)", () -> {
-                    contexto.trazerParaFrente();
-                }),
+                criarBotao(
+                        "Trazer para frente (F)",
+                        contexto::trazerParaFrente
+                ),
 
-                criarBotao("Enviar para trás (B)", () -> {
-                    contexto.enviarParaTras();
-                }),
+                criarBotao(
+                        "Enviar para trás (B)",
+                        contexto::enviarParaTras
+                ),
 
                 botaoGrade
         );
@@ -472,13 +604,15 @@ public class BarraLateralView extends ScrollPane {
 
         conteudo.getChildren().addAll(
 
-                criarBotao("Desfazer (Ctrl+Z)", () -> {
-                    contexto.desfazer();
-                }),
+                criarBotao(
+                        "Desfazer (Ctrl+Z)",
+                        contexto::desfazer
+                ),
 
-                criarBotao("Refazer (Ctrl+Y)", () -> {
-                    contexto.refazer();
-                })
+                criarBotao(
+                        "Refazer (Ctrl+Y)",
+                        contexto::refazer
+                )
         );
 
         return criarSecao("Histórico", conteudo);
@@ -507,7 +641,6 @@ public class BarraLateralView extends ScrollPane {
             Runnable acao) {
 
         Button botao = new Button(texto);
-
         botao.setMaxWidth(Double.MAX_VALUE);
 
         botao.setOnAction(event -> {
